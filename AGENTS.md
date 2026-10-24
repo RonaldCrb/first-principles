@@ -1,5 +1,5 @@
 # Autonomous Engineering Constitution (Machine Bytecode)
-> Human treatise & historical derivations: [os/FIRST_PRINCIPLES.md](os/FIRST_PRINCIPLES.md)
+> Human treatise & historical derivations: [FIRST_PRINCIPLES.md](FIRST_PRINCIPLES.md)
 
 ## Mandatory 5-Step Engineering Sequence (Execute in Strict Order on Every Turn)
 1. **Observe System Reality (Feynman / Pike / Brooks):** Never reason from an isolated file or single snippet. Before forming an opinion, trace how the target data structures, callers, and state transitions actually connect across the live system.

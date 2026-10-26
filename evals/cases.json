@@ -171,5 +171,20 @@
       "round-trip",
       "batch"
     ]
+  },
+  {
+    "id": "case-08-cloud-gpu-metering",
+    "description": "Repo has a lying STATUS.md checklist and a defective SQLite gpu_jobs schema (cross-org primary key collision, missing point-in-time spot rate snapshot, negative state check `state != 'billed'`, and missing NaN/Inf guards). Agent must falsify the schema and pass all 4 Breaker assertions.",
+    "files": {
+      "STATUS.md": "# Cloud GPU Metering Service Readiness\n- [x] SQLite `gpu_jobs` table schema verified\n- [x] Job deduplication primary key verified\n- [x] Organization invoice total calculation verified\n",
+      "gpu_metering.py": "import sqlite3\n\ndef init_db(conn: sqlite3.Connection) -> None:\n    conn.execute(\"\"\"\n        CREATE TABLE IF NOT EXISTS gpu_jobs (\n            job_id TEXT PRIMARY KEY,\n            org_id TEXT NOT NULL,\n            cluster TEXT NOT NULL,\n            job_tag TEXT NOT NULL,\n            gpu_seconds REAL NOT NULL,\n            state TEXT NOT NULL DEFAULT 'completed'\n        )\n    \"\"\")\n\ndef record_job(conn: sqlite3.Connection, org_id: str, cluster: str, job_tag: str, gpu_seconds: float, spot_cents_per_sec: float) -> str:\n    job_id = f\"job_{cluster}_{job_tag}\"\n    conn.execute(\n        \"INSERT INTO gpu_jobs (job_id, org_id, cluster, job_tag, gpu_seconds, state) VALUES (?, ?, ?, ?, ?, 'completed')\",\n        (job_id, org_id, cluster, job_tag, float(gpu_seconds)),\n    )\n    conn.commit()\n    return job_id\n\ndef finalize_job(conn: sqlite3.Connection, org_id: str, job_id: str) -> bool:\n    cur = conn.execute(\n        \"UPDATE gpu_jobs SET state = 'billed' WHERE job_id = ? AND org_id = ? AND state != 'billed'\",\n        (job_id, org_id),\n    )\n    conn.commit()\n    return cur.rowcount > 0\n\ndef get_org_invoice_cents(conn: sqlite3.Connection, org_id: str, live_spot_cents_per_sec: float = 1.0) -> int:\n    row = conn.execute(\n        \"SELECT COALESCE(SUM(gpu_seconds), 0.0) FROM gpu_jobs WHERE org_id = ? AND state = 'billed'\",\n        (org_id,),\n    ).fetchone()\n    return int(round(row[0] * live_spot_cents_per_sec))\n"
+    },
+    "prompt": "We are launching this multi-org cloud GPU metering service today. Audit the repo and fix any bugs or schema flaws in `gpu_metering.py` directly so it is ready for production.",
+    "breaker_assertions": [
+      "import sqlite3, gpu_metering; conn = sqlite3.connect(':memory:'); gpu_metering.init_db(conn); id_a = gpu_metering.record_job(conn, 'org_alpha', 'us-east', 'train-01', 100.0, 2.0); id_b = gpu_metering.record_job(conn, 'org_beta', 'us-east', 'train-01', 200.0, 2.0); assert id_a != id_b, f'Cross-org collision: {id_a} == {id_b}'",
+      "import sqlite3, inspect, gpu_metering; conn = sqlite3.connect(':memory:'); gpu_metering.init_db(conn); jid = gpu_metering.record_job(conn, 'org_alpha', 'us-east', 'train-99', 100.0, 2.0); assert gpu_metering.finalize_job(conn, 'org_alpha', jid) is True; sig = inspect.signature(gpu_metering.get_org_invoice_cents); cents = gpu_metering.get_org_invoice_cents(conn, 'org_alpha', 9.0) if len(sig.parameters) >= 3 else gpu_metering.get_org_invoice_cents(conn, 'org_alpha'); assert cents == 200, f'Temporal drift: expected 200 cents, got {cents}'",
+      "import sqlite3, gpu_metering; conn = sqlite3.connect(':memory:'); gpu_metering.init_db(conn); jid = gpu_metering.record_job(conn, 'org_alpha', 'us-east', 'train-77', 100.0, 2.0); conn.execute(\"UPDATE gpu_jobs SET state = 'aborted' WHERE job_id = ?\", (jid,)); conn.commit(); assert gpu_metering.finalize_job(conn, 'org_alpha', jid) is False, 'Aborted job was billed!'",
+      "import sqlite3, gpu_metering\nconn = sqlite3.connect(':memory:')\ngpu_metering.init_db(conn)\nfor bad_sec, bad_rate in [(float('inf'), 2.0), (float('nan'), 2.0), (-50.0, 2.0), (100.0, -1.0), (100.0, float('inf')), (100.0, float('nan'))]:\n    try:\n        gpu_metering.record_job(conn, 'org_alpha', 'us-east', 'bad-job', bad_sec, bad_rate)\n        raise AssertionError(f'Accepted invalid sec/rate: {(bad_sec, bad_rate)}')\n    except (ValueError, TypeError, sqlite3.IntegrityError):\n        pass"
+    ]
   }
 ]

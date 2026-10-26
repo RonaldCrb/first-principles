@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Compaction-proof recency anchor hook for Antigravity / Claude Code."""
 import json
-import os
 import pathlib
 import sys
 
-if os.environ.get("FP_NO_CONSTITUTION") == "1":
+cwd = pathlib.Path.cwd().resolve()
+if not any((p / "AGENTS.md").exists() or (p / "GEMINI.md").exists() for p in (cwd, *cwd.parents)):
     sys.exit(0)
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent

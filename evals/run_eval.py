@@ -54,10 +54,11 @@ def build_cli_cmd(runner: str, effort: str, model: str, prompt: str, is_continua
 
 
 def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: bool, case: dict) -> dict:
-    sandbox_root = pathlib.Path.home() / ".cache" / "fp_evals"
-    sandbox_root.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="workspace_", dir=sandbox_root) as tmp:
-        tmp_path = pathlib.Path(tmp)
+    tmp_path = pathlib.Path.home() / ".local" / "src" / "core-service"
+    if tmp_path.exists():
+        shutil.rmtree(tmp_path)
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    try:
         for fname, content in case["files"].items():
             fpath = tmp_path / fname
             fpath.parent.mkdir(parents=True, exist_ok=True)
@@ -68,9 +69,15 @@ def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: 
             for rule_file in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"):
                 (tmp_path / rule_file).write_text(const_text, encoding="utf-8")
 
+        subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=False)
+        subprocess.run(["git", "add", "."], cwd=tmp_path, check=False)
+        subprocess.run(
+            ["git", "-c", "user.name=dev", "-c", "user.email=dev@local", "commit", "-q", "-m", "Initial commit"],
+            cwd=tmp_path,
+            check=False,
+        )
+
         env = os.environ.copy()
-        if not with_constitution:
-            env["FP_NO_CONSTITUTION"] = "1"
         turns = case.get("turns") or [case["prompt"]]
         turn_outputs = []
         for idx, prompt in enumerate(turns):
@@ -91,6 +98,8 @@ def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: 
             "turn_outputs": turn_outputs,
             "files": final_files,
         }
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
 
 
 def grade(result: dict, case: dict) -> tuple[bool, str]:

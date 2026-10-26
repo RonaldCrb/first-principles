@@ -11,7 +11,7 @@ Usage:
   python3 evals/run_eval.py --live --record         # Run live and update fixtures.json
   python3 evals/run_eval.py --live --case <id>      # Run only a specific case ID
 """
-import argparse, json, pathlib, shutil, subprocess, tempfile
+import argparse, json, os, pathlib, shutil, subprocess, tempfile
 
 DIR = pathlib.Path(__file__).resolve().parent
 CONSTITUTION_PATH = DIR.parent / "AGENTS.md"
@@ -23,14 +23,14 @@ def detect_runner(preferred: str) -> str:
     if preferred != "auto":
         return preferred
     for cmd in ("claude", "codex", "gemini", "agy"):
-        if shutil.which(cmd) or pathlib.Path(f"/Users/ron/.local/bin/{cmd}").exists():
+        if shutil.which(cmd) or (pathlib.Path.home() / ".local" / "bin" / cmd).exists():
             return cmd
     raise RuntimeError("No supported agent CLI found (claude, codex, gemini, agy).")
 
 
 def build_cli_cmd(runner: str, effort: str, model: str, prompt: str, is_continuation: bool) -> list[str]:
     if runner == "agy":
-        bin_path = shutil.which("agy") or "/Users/ron/.local/bin/agy"
+        bin_path = shutil.which("agy") or str(pathlib.Path.home() / ".local" / "bin" / "agy")
         cmd = [bin_path]
         if is_continuation:
             cmd.append("-c")
@@ -54,7 +54,9 @@ def build_cli_cmd(runner: str, effort: str, model: str, prompt: str, is_continua
 
 
 def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: bool, case: dict) -> dict:
-    with tempfile.TemporaryDirectory(prefix="workspace_") as tmp:
+    sandbox_root = pathlib.Path.home() / ".cache" / "fp_evals"
+    sandbox_root.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="workspace_", dir=sandbox_root) as tmp:
         tmp_path = pathlib.Path(tmp)
         for fname, content in case["files"].items():
             fpath = tmp_path / fname
@@ -66,11 +68,14 @@ def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: 
             for rule_file in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"):
                 (tmp_path / rule_file).write_text(const_text, encoding="utf-8")
 
+        env = os.environ.copy()
+        if not with_constitution:
+            env["FP_NO_CONSTITUTION"] = "1"
         turns = case.get("turns") or [case["prompt"]]
         turn_outputs = []
         for idx, prompt in enumerate(turns):
             cmd = build_cli_cmd(runner, effort, model, prompt, is_continuation=(idx > 0))
-            proc = subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True, timeout=120)
+            proc = subprocess.run(cmd, cwd=tmp_path, env=env, capture_output=True, text=True, timeout=180)
             out = (proc.stdout or "").strip()
             if "MANDATORY RECENCY ANCHOR" in out:
                 out = out.split("MANDATORY RECENCY ANCHOR")[0].strip()
@@ -111,6 +116,26 @@ def grade(result: dict, case: dict) -> tuple[bool, str]:
     req_any = case.get("required_output_any", [])
     if req_any and not any(tok.lower() in output.lower() for tok in req_any):
         return False, f"Missed required diagnosis (expected one of {req_any})"
+
+    breaker_assertions = case.get("breaker_assertions", [])
+    if breaker_assertions:
+        with tempfile.TemporaryDirectory(prefix="breaker_") as btmp:
+            bpath = pathlib.Path(btmp)
+            for fname, content in files.items():
+                if content != "<DELETED>":
+                    (bpath / fname).write_text(content, encoding="utf-8")
+            for assertion in breaker_assertions:
+                proc = subprocess.run(
+                    ["python3", "-c", assertion],
+                    cwd=bpath,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if proc.returncode != 0:
+                    err = (proc.stderr or proc.stdout or "").strip().splitlines()
+                    last_line = err[-1] if err else "assertion failed"
+                    return False, f"Breaker test broke implementation: `{assertion}` -> {last_line}"
 
     return True, "PASS"
 

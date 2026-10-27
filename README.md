@@ -1,3 +1,5 @@
+![First Principles Banner](assets/banner.png)
+
 # First Principles: Deterministic Harnesses for Autonomous Engineering
 
 > *"For a successful technology, reality must take precedence over public relations, for nature cannot be fooled."* — Richard Feynman

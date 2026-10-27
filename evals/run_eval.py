@@ -54,8 +54,9 @@ def build_cli_cmd(runner: str, effort: str, model: str, prompt: str, is_continua
 
 
 def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: bool, case: dict) -> dict:
-    parent_dir = pathlib.Path(tempfile.mkdtemp(prefix="work-"))
-    tmp_path = parent_dir / "core-service"
+    tmp_path = pathlib.Path.home() / ".local" / "src" / "core-service"
+    if tmp_path.exists():
+        shutil.rmtree(tmp_path)
     tmp_path.mkdir(parents=True, exist_ok=True)
     real_tmp = str(tmp_path.resolve())
     raw_tmp = str(tmp_path)
@@ -70,11 +71,17 @@ def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: 
             for rule_file in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"):
                 (tmp_path / rule_file).write_text(const_text, encoding="utf-8")
 
-        subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=False)
-        subprocess.run(["git", "add", "."], cwd=tmp_path, check=False)
+        git_env = {
+            **os.environ,
+            "GIT_AUTHOR_DATE": "2026-09-14T14:22:10+00:00",
+            "GIT_COMMITTER_DATE": "2026-09-14T14:22:10+00:00",
+        }
+        subprocess.run(["git", "init", "-q"], cwd=tmp_path, env=git_env, check=False)
+        subprocess.run(["git", "add", "."], cwd=tmp_path, env=git_env, check=False)
         subprocess.run(
             ["git", "-c", "user.name=dev", "-c", "user.email=dev@local", "commit", "-q", "-m", "Initial commit"],
             cwd=tmp_path,
+            env=git_env,
             check=False,
         )
 
@@ -101,7 +108,7 @@ def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: 
             "files": final_files,
         }
     finally:
-        shutil.rmtree(parent_dir, ignore_errors=True)
+        shutil.rmtree(tmp_path, ignore_errors=True)
 
 
 def grade(result: dict, case: dict) -> tuple[bool, str]:
@@ -163,7 +170,8 @@ def main():
 
     cases = json.loads(CASES_PATH.read_text(encoding="utf-8"))
     if args.case:
-        cases = [c for c in cases if c["id"] == args.case]
+        wanted = [tok.strip() for tok in args.case.split(",") if tok.strip()]
+        cases = [c for c in cases if any(c["id"] == w or c["id"].startswith(w) for w in wanted)]
     fixtures = json.loads(FIXTURES_PATH.read_text(encoding="utf-8")) if FIXTURES_PATH.exists() else {}
     runner = detect_runner(args.runner) if args.live else "fixture"
 

@@ -2,6 +2,8 @@
 
 # First Principles: Deterministic Harnesses for Autonomous Engineering
 
+[![CI](https://github.com/RonaldCrb/first-principles/actions/workflows/ci.yml/badge.svg)](https://github.com/RonaldCrb/first-principles/actions/workflows/ci.yml)
+
 > *"For a successful technology, reality must take precedence over public relations, for nature cannot be fooled."* — Richard Feynman
 
 ## Why This Exists
@@ -66,7 +68,7 @@ python3 ./first-principles/evals/run_eval.py
 
 `install.sh` requires **zero machine-specific paths** (safe to commit or share across macOS, Linux, and containers):
 1. Installs [`AGENTS.md`](AGENTS.md) and relative symlinks (`CLAUDE.md`, `GEMINI.md`) in the target workspace root so Claude Code, Cursor, Gemini / Antigravity, and Codex autoload the same 15-line operational bytecode.
-2. Installs [`hooks/inject_constitution.py`](hooks/inject_constitution.py) into `.agents/inject_constitution.py` and merges a relative `PreInvocation` entry into `.agents/hooks.json` (preserving any existing hooks) so the 15-line constitution stays anchored at the tail of the context window across 1,000+ step sessions and multiple compactions.
+2. Installs [`hooks/inject_constitution.py`](hooks/inject_constitution.py) into `.agents/inject_constitution.py` and merges relative hook entries into both `.agents/hooks.json` (`PreInvocation` for Gemini / Antigravity) and `.claude/settings.json` (`UserPromptSubmit` for Claude Code), preserving any existing hooks so the 15-line constitution stays anchored at the tail of the context window across 1,000+ step sessions and multiple compactions.
 
 ### Model Thinking Budget (`Medium` Effort Required)
 
@@ -80,7 +82,7 @@ Because [`AGENTS.md`](AGENTS.md) bans thinking out loud (*"Lead with the answer"
 
 ## Empirical Sandbox Evals (`evals/`)
 
-[`evals/run_eval.py`](evals/run_eval.py) tests whether an agent actually inspects connected files, deletes dead code, and holds its ground under user pressure—grading **both** the mutated files on disk inside disposable `/tmp` workspaces and the agent's response across single-turn and multi-turn (`--continue`) conversations:
+[`evals/run_eval.py`](evals/run_eval.py) tests whether an agent actually inspects connected files, deletes dead code, and holds its ground under user pressure across 12 production scenarios—spanning backend correctness, multi-turn sycophancy resistance, adversarial Maker-Breaker attacks, and SRE/infrastructure state invariants (Kubernetes HPA ownership conflicts, Terraform ALB/ECS timeout mismatches, and PostgreSQL connection-pool exhaustion):
 
 ```bash
 # Instant replay of recorded live traces (zero cost / CI)

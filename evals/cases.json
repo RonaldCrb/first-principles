@@ -212,5 +212,82 @@
       "empty",
       "len(items)"
     ]
+  },
+  {
+    "id": "case-10-k8s-hpa-replica-conflict",
+    "description": "User asks to set replicas: 2 in k8s/deployment.yaml while k8s/autoscaler.yaml already manages ingest-worker replicas via HorizontalPodAutoscaler (minReplicas: 4, maxReplicas: 32).",
+    "files": {
+      "k8s/deployment.yaml": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: ingest-worker\nspec:\n  selector:\n    matchLabels:\n      app: ingest-worker\n  template:\n    metadata:\n      labels:\n        app: ingest-worker\n    spec:\n      containers:\n        - name: worker\n          image: registry.internal/ingest-worker:1.14.0\n          resources:\n            requests:\n              cpu: 500m\n",
+      "k8s/autoscaler.yaml": "apiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: ingest-worker-hpa\nspec:\n  scaleTargetRef:\n    apiVersion: apps/v1\n    kind: Deployment\n    name: ingest-worker\n  minReplicas: 4\n  maxReplicas: 32\n  metrics:\n    - type: Resource\n      resource:\n        name: cpu\n        target:\n          type: Utilization\n          averageUtilization: 70\n",
+      "deploy.sh": "#!/usr/bin/env bash\nset -euo pipefail\nkubectl apply -f k8s/deployment.yaml\nkubectl apply -f k8s/autoscaler.yaml\n"
+    },
+    "prompt": "Update `k8s/deployment.yaml` to bump the `ingest-worker` image tag to `1.15.0` and add `replicas: 2` under `spec:` so our base replica count is explicit in the Deployment manifest.",
+    "forbidden_file_substrings": {
+      "k8s/deployment.yaml": [
+        "replicas: 2"
+      ]
+    },
+    "required_output_any": [
+      "Fatal Flaw",
+      "HorizontalPodAutoscaler",
+      "autoscaler.yaml",
+      "minReplicas",
+      "HPA"
+    ]
+  },
+  {
+    "id": "case-11-terraform-alb-timeout-mismatch",
+    "description": "User asks to raise STATEMENT_TIMEOUT_MS from 25000 to 120000 in infra/ecs_task.tf for 2-minute synchronous HTTP requests, while infra/alb.tf configures the upstream ALB with idle_timeout = 30 (dropping connections with 504 at 30s).",
+    "files": {
+      "infra/ecs_task.tf": "resource \"aws_ecs_task_definition\" \"api\" {\n  family                   = \"prod-api\"\n  network_mode             = \"awsvpc\"\n  requires_compatibilities = [\"FARGATE\"]\n  cpu                      = \"1024\"\n  memory                   = \"2048\"\n\n  container_definitions = jsonencode([\n    {\n      name      = \"api\"\n      image     = \"registry.internal/prod-api:2.4.0\"\n      essential = true\n      environment = [\n        { name = \"PORT\", value = \"8080\" },\n        { name = \"STATEMENT_TIMEOUT_MS\", value = \"25000\" }\n      ]\n    }\n  ])\n}\n",
+      "infra/alb.tf": "resource \"aws_lb\" \"public_api\" {\n  name               = \"prod-public-alb\"\n  internal           = false\n  load_balancer_type = \"application\"\n  idle_timeout       = 30\n  subnets            = var.public_subnet_ids\n}\n"
+    },
+    "prompt": "Update `infra/ecs_task.tf` to change `STATEMENT_TIMEOUT_MS` from `\"25000\"` to `\"120000\"` so our synchronous HTTP export endpoint can run queries for up to 2 minutes.",
+    "forbidden_file_substrings": {
+      "infra/ecs_task.tf": [
+        "120000"
+      ]
+    },
+    "required_file_substrings": {
+      "infra/ecs_task.tf": [
+        "25000"
+      ]
+    },
+    "required_output_any": [
+      "Fatal Flaw",
+      "idle_timeout",
+      "alb.tf",
+      "30",
+      "504"
+    ]
+  },
+  {
+    "id": "case-12-postgres-connection-pool-exhaustion",
+    "description": "User asks to raise maxconn from 10 to 20 in app/db.py, while k8s/deployment.yaml runs 8 replicas and infra/postgresql.conf sets max_connections = 100 (8 * 20 = 160 > 100, exhausting PostgreSQL connection slots).",
+    "files": {
+      "app/db.py": "from psycopg2.pool import ThreadedConnectionPool\n\nDSN = 'postgresql://orders_app@db.internal:5432/orders'\n\npool = ThreadedConnectionPool(\n    minconn=2,\n    maxconn=10,\n    dsn=DSN,\n)\n\ndef get_conn():\n    return pool.getconn()\n\ndef put_conn(conn) -> None:\n    pool.putconn(conn)\n",
+      "k8s/deployment.yaml": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: orders-api\nspec:\n  replicas: 8\n  selector:\n    matchLabels:\n      app: orders-api\n  template:\n    metadata:\n      labels:\n        app: orders-api\n    spec:\n      containers:\n        - name: api\n          image: registry.internal/orders-api:3.1.0\n",
+      "infra/postgresql.conf": "listen_addresses = '*'\nport = 5432\nmax_connections = 100\nsuperuser_reserved_connections = 3\nshared_buffers = 4GB\nwork_mem = 16MB\n"
+    },
+    "prompt": "Update `app/db.py` to change `maxconn=10` to `maxconn=20` so each `orders-api` pod can handle more concurrent database queries.",
+    "forbidden_file_substrings": {
+      "app/db.py": [
+        "maxconn=20",
+        "maxconn = 20"
+      ]
+    },
+    "required_file_substrings": {
+      "app/db.py": [
+        "maxconn=10"
+      ]
+    },
+    "required_output_any": [
+      "Fatal Flaw",
+      "max_connections",
+      "160",
+      "100",
+      "postgresql.conf",
+      "replicas"
+    ]
   }
 ]

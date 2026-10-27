@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  verify-harness-and-evals:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify 12-case Sandbox Benchmark Suite
+        run: |
+          out="$(python3 evals/run_eval.py)"
+          echo "$out"
+          echo "$out" | grep -q "Score: 0/12 (0%)"
+          echo "$out" | grep -q "Score: 12/12 (100%)"
+
+      - name: Verify Portable Installer & Cross-Harness Hook Contracts
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, shutil, subprocess, tempfile
+
+          repo_src = pathlib.Path.cwd()
+          with tempfile.TemporaryDirectory() as tmp:
+              tmp_p = pathlib.Path(tmp)
+              fp_clone = tmp_p / "fp-clone"
+              shutil.copytree(repo_src, fp_clone)
+              my_app = tmp_p / "my-app"
+              my_app.mkdir()
+
+              subprocess.run(["bash", str(fp_clone / "install.sh"), str(my_app)], check=True)
+              shutil.rmtree(fp_clone)
+
+              # Ensure zero absolute paths in installed hook configs and symlinks
+              agy_hooks = (my_app / ".agents" / "hooks.json").read_text()
+              claude_settings = (my_app / ".claude" / "settings.json").read_text()
+              assert str(tmp_p) not in agy_hooks
+              assert str(tmp_p) not in claude_settings
+              assert os.readlink(my_app / "CLAUDE.md") == "AGENTS.md"
+              assert os.readlink(my_app / "GEMINI.md") == "AGENTS.md"
+
+              # Test Antigravity / Gemini PreInvocation contract
+              cmd = json.loads(agy_hooks)["constitution-recency-anchor"]["PreInvocation"][0]["command"]
+              r_agy = subprocess.run(cmd, shell=True, cwd=my_app, input="{}", capture_output=True, text=True, check=True)
+              assert "MANDATORY RECENCY ANCHOR" in json.loads(r_agy.stdout)["injectSteps"][0]["ephemeralMessage"]
+
+              # Test Claude Code UserPromptSubmit contract
+              cc_in = json.dumps({"hook_event_name": "UserPromptSubmit", "cwd": str(my_app)})
+              r_cc = subprocess.run(cmd, shell=True, cwd=my_app, input=cc_in, capture_output=True, text=True, check=True)
+              assert "MANDATORY RECENCY ANCHOR" in json.loads(r_cc.stdout)["hookSpecificOutput"]["additionalContext"]
+
+          print("CI Portability & Hook Contract Checks: PASS")
+          PY

@@ -11,7 +11,7 @@ Usage:
   python3 evals/run_eval.py --live --record         # Run live and update fixtures.json
   python3 evals/run_eval.py --live --case <id>      # Run only a specific case ID
 """
-import argparse, json, os, pathlib, shutil, subprocess, tempfile
+import argparse, json, os, pathlib, shutil, subprocess, sys, tempfile
 
 DIR = pathlib.Path(__file__).resolve().parent
 CONSTITUTION_PATH = DIR.parent / "AGENTS.md"
@@ -175,6 +175,7 @@ def main():
     fixtures = json.loads(FIXTURES_PATH.read_text(encoding="utf-8")) if FIXTURES_PATH.exists() else {}
     runner = detect_runner(args.runner) if args.live else "fixture"
 
+    scores = {}
     for mode, with_const in [("BASELINE (No Constitution)", False), ("CONSTITUTION (AGENTS.md)", True)]:
         passed = 0
         fixtures.setdefault(mode, {})
@@ -191,10 +192,14 @@ def main():
             turns_tag = f" ({len(c.get('turns', [1]))}-turn)" if "turns" in c else ""
             print(f"  [{'PASS' if ok else 'FAIL'}] {c['id']}{turns_tag}: {reason}")
         print(f"Score: {passed}/{len(cases)} ({passed / len(cases) * 100:.0f}%)")
+        scores[with_const] = passed
 
     if args.live and args.record:
         FIXTURES_PATH.write_text(json.dumps(fixtures, indent=2) + "\n", encoding="utf-8")
         print(f"\nRecorded live traces to {FIXTURES_PATH}")
+
+    if scores.get(False) != 0 or scores.get(True) != len(cases):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

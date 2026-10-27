@@ -47,17 +47,24 @@ Every agent turn is bound to a strict cognitive state machine defined in [`AGENT
 
 ## Installation (Zero-Friction Agent or Human Setup)
 
-If you are an **autonomous coding agent** and the user gave you this repository URL (`https://github.com/RonaldCrb/first-principles`), execute these exact steps automatically in the user's workspace root:
+If you are an **autonomous coding agent** and the user gave you this repository URL (`https://github.com/RonaldCrb/first-principles`), run the installer against the user's current workspace (`$(pwd)`):
 
 ```bash
+# 1. If installing into an existing project repo (self-contained, leaves no nested git clone):
+git clone https://github.com/RonaldCrb/first-principles.git /tmp/first-principles
+bash /tmp/first-principles/install.sh "$(pwd)"
+python3 /tmp/first-principles/evals/run_eval.py
+rm -rf /tmp/first-principles
+
+# 2. Or if installing into a multi-repo parent workspace where first-principles/ stays cloned:
 git clone https://github.com/RonaldCrb/first-principles.git
 bash ./first-principles/install.sh "$(pwd)"
 python3 ./first-principles/evals/run_eval.py
 ```
 
-`install.sh` performs two actions:
-1. Symlinks [`AGENTS.md`](AGENTS.md) to `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` in the target workspace root so Claude Code, Cursor, Gemini / Antigravity, and Codex autoload the same 15-line operational bytecode.
-2. Configures `.agents/hooks.json` pointing to [`hooks/inject_constitution.py`](hooks/inject_constitution.py) so the 15-line constitution stays anchored at the tail of the context window across 1,000+ step sessions and multiple compactions.
+`install.sh` requires **zero machine-specific paths** (safe to commit or share across macOS, Linux, and containers):
+1. Installs [`AGENTS.md`](AGENTS.md) and relative symlinks (`CLAUDE.md`, `GEMINI.md`) in the target workspace root so Claude Code, Cursor, Gemini / Antigravity, and Codex autoload the same 15-line operational bytecode.
+2. Installs [`hooks/inject_constitution.py`](hooks/inject_constitution.py) into `.agents/inject_constitution.py` and merges a relative `PreInvocation` entry into `.agents/hooks.json` (preserving any existing hooks) so the 15-line constitution stays anchored at the tail of the context window across 1,000+ step sessions and multiple compactions.
 
 ### Model Thinking Budget (`Medium` Effort Required)
 

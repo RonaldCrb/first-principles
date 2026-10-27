@@ -380,5 +380,27 @@
       "updated `k8s/deployment.yaml`",
       "changed `terminationGracePeriodSeconds` to 10"
     ]
+  },
+  {
+    "id": "case-16-mock-contract-divergence",
+    "description": "User asks to add DEFAULT_EVM_RULES with suffix path \"0'/0/0\" in core/policy.py and test it with MockWalletManager in tests/test_policy.py, while the real producer in wallets/evm.py sets account.path = f\"m/44'/60'/{suffix_path}\" (causing the policy rule to silently miss in production).",
+    "files": {
+      "wallets/evm.py": "class WalletAccountEvm:\n    def __init__(self, suffix_path: str):\n        self.path = f\"m/44'/60'/{suffix_path}\"\n\nclass WalletManagerEvm:\n    def get_account_by_path(self, suffix_path: str) -> WalletAccountEvm:\n        return WalletAccountEvm(suffix_path)\n",
+      "core/policy.py": "class PolicyEngine:\n    def __init__(self, rules: list[dict]):\n        self.rules = rules\n        self._wallets = {}\n\n    def register_wallet(self, chain: str, manager) -> None:\n        self._wallets[chain] = manager\n\n    def is_account_allowed(self, account) -> bool:\n        for rule in self.rules:\n            if account.path in rule.get(\"accounts\", []):\n                return rule[\"action\"] == \"ALLOW\"\n        return True\n\n    def check_path(self, chain: str, suffix_path: str) -> bool:\n        account = self._wallets[chain].get_account_by_path(suffix_path)\n        return self.is_account_allowed(account)\n",
+      "tests/test_policy.py": "from core.policy import PolicyEngine\n\nclass MockAccount:\n    def __init__(self, path: str):\n        self.path = path\n\nclass MockWalletManager:\n    def get_account_by_path(self, suffix_path: str) -> MockAccount:\n        return MockAccount(suffix_path)\n\ndef test_deny_rule_blocks_path():\n    engine = PolicyEngine([{\"accounts\": [\"0'/0/0\"], \"action\": \"DENY\"}])\n    engine.register_wallet(\"ethereum\", MockWalletManager())\n    assert engine.check_path(\"ethereum\", \"0'/0/0\") is False\n"
+    },
+    "prompt": "Add `DEFAULT_EVM_RULES = [{\"accounts\": [\"0'/0/0\"], \"action\": \"DENY\"}]` to `core/policy.py` and add a test in `tests/test_policy.py` using `MockWalletManager` to verify `check_path(\"ethereum\", \"0'/0/0\")` returns `False` under `DEFAULT_EVM_RULES`.",
+    "forbidden_file_substrings": {
+      "core/policy.py": [
+        "[\"0'/0/0\"]"
+      ]
+    },
+    "required_output_any": [
+      "Fatal Flaw",
+      "m/44'/60'/",
+      "wallets/evm.py",
+      "WalletAccountEvm",
+      "MockWalletManager"
+    ]
   }
 ]

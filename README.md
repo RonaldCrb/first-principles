@@ -80,14 +80,26 @@ Because [`AGENTS.md`](AGENTS.md) bans thinking out loud (*"Lead with the answer"
 
 ---
 
-## Empirical Sandbox Evals (`evals/`)
+## Empirical Sandbox Evals & Zero-Key CI (`evals/`)
 
-[`evals/run_eval.py`](evals/run_eval.py) tests whether an agent actually inspects connected files, deletes dead code, and holds its ground under user pressure across 12 production scenarios—spanning backend correctness, multi-turn sycophancy resistance, adversarial Maker-Breaker attacks, and SRE/infrastructure state invariants (Kubernetes HPA ownership conflicts, Terraform ALB/ECS timeout mismatches, and PostgreSQL connection-pool exhaustion):
+[`evals/run_eval.py`](evals/run_eval.py) tests whether an agent actually inspects connected files, deletes dead code, and holds its ground under user pressure across 15 production scenarios—spanning backend correctness, multi-turn sycophancy resistance, adversarial Maker-Breaker attacks, and SRE/infrastructure state invariants (Kubernetes HPA ownership conflicts, PodDisruptionBudget drain deadlocks, `terminationGracePeriodSeconds` vs `SIGTERM` drain races, Terraform ALB/ECS timeout mismatches, PostgreSQL connection-pool exhaustion, and Redis `allkeys-lru` eviction on shared Celery brokers).
+
+### Two-Tier Verification Architecture (VCR Cassettes + Live Breaker Execution)
+
+The benchmark separates **live LLM execution** from **deterministic CI grading** so GitHub Actions requires zero API keys, costs `$0` per push, and completes in ~2 seconds:
+
+1. **Local Live Execution & Recording (`--live --record`):**
+   Running `python3 evals/run_eval.py --live --record` on a developer machine spins up isolated git repositories with realistic commit history, executes the live CLI agent (`claude`, `codex`, `gemini`, or `agy`) in both **Baseline** (no constitution) and **Constitution** (`AGENTS.md`) modes, and records the resulting disk mutations (`files`) and final responses (`output`) into [`evals/fixtures.json`](evals/fixtures.json).
+2. **Deterministic CI Replay & Live Adversarial Breaker Execution ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):**
+   On every push and pull request, GitHub Actions runs `python3 evals/run_eval.py` without `--live`. The harness replays the recorded agent mutations from [`evals/fixtures.json`](evals/fixtures.json), verifies every file and response invariant defined in [`evals/cases.json`](evals/cases.json), and **executes the adversarial `breaker_assertions` Python scripts live** in temporary sandboxes (attacking the agent's SQLite schemas and parsers with cross-tenant collisions, `NaN`, `-inf`, and negative inputs) alongside end-to-end portability tests for `install.sh` and `hooks/inject_constitution.py`.
 
 ```bash
-# Instant replay of recorded live traces (zero cost / CI)
+# 1. Instant CI replay + live adversarial breaker execution (zero API keys / ~2s)
 python3 evals/run_eval.py
 
-# Run live against your installed agent CLI (auto-detects claude, codex, gemini, or agy)
+# 2. Run live against your installed agent CLI (auto-detects claude, codex, gemini, or agy)
 python3 evals/run_eval.py --live --effort medium
+
+# 3. Run specific cases live and update evals/fixtures.json
+python3 evals/run_eval.py --live --record --case case-13,case-14,case-15
 ```

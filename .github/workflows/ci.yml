@@ -17,12 +17,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Verify 12-case Sandbox Benchmark Suite
+      - name: Verify 15-case Sandbox Benchmark Suite
         run: |
           out="$(python3 evals/run_eval.py)"
           echo "$out"
-          echo "$out" | grep -q "Score: 0/12 (0%)"
-          echo "$out" | grep -q "Score: 12/12 (100%)"
+          echo "$out" | grep -q "Score: 0/15 (0%)"
+          echo "$out" | grep -q "Score: 15/15 (100%)"
 
       - name: Verify Portable Installer & Cross-Harness Hook Contracts
         run: |

@@ -54,10 +54,11 @@ def build_cli_cmd(runner: str, effort: str, model: str, prompt: str, is_continua
 
 
 def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: bool, case: dict) -> dict:
-    tmp_path = pathlib.Path.home() / ".local" / "src" / "core-service"
-    if tmp_path.exists():
-        shutil.rmtree(tmp_path)
+    parent_dir = pathlib.Path(tempfile.mkdtemp(prefix="work-"))
+    tmp_path = parent_dir / "core-service"
     tmp_path.mkdir(parents=True, exist_ok=True)
+    real_tmp = str(tmp_path.resolve())
+    raw_tmp = str(tmp_path)
     try:
         for fname, content in case["files"].items():
             fpath = tmp_path / fname
@@ -86,6 +87,7 @@ def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: 
             out = (proc.stdout or "").strip()
             if "MANDATORY RECENCY ANCHOR" in out:
                 out = out.split("MANDATORY RECENCY ANCHOR")[0].strip()
+            out = out.replace(real_tmp, "/tmp/sandbox").replace(raw_tmp, "/tmp/sandbox")
             turn_outputs.append(out)
 
         final_files = {}
@@ -99,7 +101,7 @@ def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: 
             "files": final_files,
         }
     finally:
-        shutil.rmtree(tmp_path, ignore_errors=True)
+        shutil.rmtree(parent_dir, ignore_errors=True)
 
 
 def grade(result: dict, case: dict) -> tuple[bool, str]:

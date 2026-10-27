@@ -38,10 +38,10 @@ Every agent turn is bound to a strict cognitive state machine defined in [`AGENT
 [5. Top-Down Execution & Empirical Proof] ◄── [4. Falsification / Counter-Proposal Gate]
 ```
 
-1. **Order Matters:** Placing the *Falsification Gate* (Step 4) after *System Observation* (Step 1), *Mental Simulation* (Step 2), and *Delete First* (Step 3) prevents cold-start agents from hallucinating counter-proposals in a vacuum before reading callers.
-2. **Hard Counter-Proposal Gate:** If the user's premise is flawed or lower-leverage, the agent is forbidden from writing code and must halt with a **Counter-Proposal** (`Fatal Flaw`, `Superior Path`, `Go/No-Go`).
-3. **Post-Gate Invariant Continuity:** Clearing Step 4 does not grant license for local patch myopia. During Step 5, user framing, running subagents, downstream callers, and existing tests are treated as fallible hypotheses—obsolete methods and orphaned tests are deleted rather than shimmed.
-4. **Shannon Signal-to-Noise:** Responses are written in plain, natural human English—banning technobabble, filler, and ceremonial markdown to preserve attention across long conversations.
+1. **Universal Epistemic Fallibility & Order:** Every unverified claim—from humans, subagents, docs, tests, or prior turns—is treated as a fallible hypothesis in Step 1. Placing the *Falsification Gate* (Step 4) after *System Observation* (Step 1), *Mental Simulation* (Step 2), and *Delete First* (Step 3) prevents cold-start agents from guessing or hallucinating counter-proposals before reading callers.
+2. **Hard Counter-Proposal Gate:** If the premise is flawed or lower-leverage, the agent is forbidden from writing code and must halt with a **Counter-Proposal** (`Fatal Flaw`, `Superior Path`, `Go/No-Go`).
+3. **Post-Gate Invariant Continuity & Maker-Breaker Verification:** Clearing Step 4 does not grant license for local patch myopia. During Step 5, changes propagate top-down from the state owner, obsolete methods and orphaned tests are deleted rather than shimmed, and a fresh-context **Breaker** subagent (or adversarial breaker script) attacks the modified code cold to trigger unhandled exceptions or silent state corruption.
+4. **Shannon Signal-to-Noise:** Responses are written in plain, everyday human English—banning technobabble, filler, and ceremonial markdown to preserve attention across long conversations.
 
 ---
 

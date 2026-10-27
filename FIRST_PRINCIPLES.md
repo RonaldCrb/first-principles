@@ -86,16 +86,16 @@
 ## 2. Structural Laws of Autonomous Agent Harnesses
 
 1. **Human Treatise vs. Machine Bytecode (Dijkstra / Wirth Separation):**
-   - Humans need historical context and philosophical derivations (`os/FIRST_PRINCIPLES.md`).
+   - Humans need historical context and philosophical derivations (`FIRST_PRINCIPLES.md`).
    - Machines need a dense, zero-fluff operational sequence (`AGENTS.md`, symlinked to `CLAUDE.md` and `GEMINI.md` for universal cross-harness autoloading).
-2. **The Strict Cognitive Sequence Law:**
-   - Placing the *Falsification Gate* before *System Observation* causes agents to hallucinate counter-proposals from a single file in a vacuum without checking callers.
+2. **Universal Epistemic Fallibility & Strict Cognitive Sequence (`Steps 1–4`):**
+   - All unverified information—human claims, subagent reports, docs, tests, and the agent's own prior turns—must be treated as fallible hypotheses until verified against live code.
    - Enforcing the strict order—**(1) Observe System Reality $\rightarrow$ (2) Mentally Simulate $\rightarrow$ (3) Delete First $\rightarrow$ (4) Falsification Gate**—forces cold-start agents to trace callers, state owners, and security boundaries before forming an opinion.
-3. **Multi-Turn Persistence via Ultra-Lean System Bytecode:**
-   - A dense, 15-line operational sequence in `AGENTS.md` preserves attention across long multi-turn horizons, whereas repetitive ceremonial templates (like `[STATE CHECKPOINT]` blocks) degrade signal-to-noise and induce recency drift.
-4. **Post-Gate Invariant Continuity & Epistemic Fallibility (`Step 5`):**
-   - Pre-execution gates (`Steps 1–4`) only govern diagnosis; without an explicit execution law, agents that clear Step 4 on a *directionally sound* prompt regress into **Local Repair Myopia**, treating incidental human framing, broken legacy callers, zombie subagents, and orphaned unit tests as sacred constraints.
-   - Falsification must continue inside the execution loop: propagate changes top-down from the state owner, treat user framing, running subagents, and existing tests as fallible hypotheses, immediately kill any subagent whose premise is falsified mid-flight, and delete dead callers and their orphaned tests rather than shimming or migrating them.
+3. **Multi-Turn Persistence via Ultra-Lean System Bytecode & Recency Anchoring:**
+   - A dense, 15-line operational sequence in `AGENTS.md` anchored at the tail of the context window via `hooks/inject_constitution.py` preserves attention across 1,000+ step horizons without ceremonial markdown bloat.
+4. **Post-Gate Invariant Continuity & Maker-Breaker Verification (`Step 5`):**
+   - Clearing Step 4 does not grant license for local patch myopia: propagate changes top-down from the state owner, immediately kill any subagent whose premise is falsified, and delete obsolete methods and their orphaned tests rather than shimming dead paths.
+   - Because an agent that writes code suffers from confirmation bias toward its own edits, Step 5 requires switching from **Maker to Breaker**: spawning a fresh-context Breaker subagent (or adversarial breaker script) that reads the modified code cold and attempts to trigger an unhandled exception or silent data corruption.
 5. **The Silent-Compute Conservation Law (`Medium` Thinking Budget):**
    - Reasoning requires tokens of compute—either out loud in the visible reply or silently inside the model's internal `<thought>` block.
    - Because `AGENTS.md` requires leading with the answer and forbids rambling out loud, 100% of Steps 1–4 (`Observe -> Simulate -> Delete -> Falsify`) must run inside the silent `<thought>` block before Visible Token 1 is emitted.

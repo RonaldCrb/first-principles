@@ -117,6 +117,7 @@ Beyond synthetic sandbox traps, [`AGENTS.md`](AGENTS.md) is continuously stress-
 | **`tetherto/wdk*`** | Node.js / EVM / BTC | `main` (`beta.22`–`beta.24`) | **5** unpatched cross-package BIP-44 path, proxy cache (`wdk#121`), BIP-173 regtest & ERC-4337 quote cache defects | [Read Writeup](AUDITS.md#2-tether-wdk-githubcomtethertowdk--5-unpatched-cross-package--state-invariant-defects) |
 | **`supabase/auth`** | Go / PostgreSQL | `c3348e8` (`main`) | **4** unpatched PKCE single-OTP email-change bypass, Argon2/Scrypt panic, nil-session & MFA lockout defects | [Read Writeup](AUDITS.md#3-supabase-auth-githubcomsupabaseauth--c3348e8--4-unpatched-go-auth-crypto--mfa-state-defects) |
 | **`netbirdio/netbird`** | Go / WireGuard | `09f1de1` (`main`) | **4** unpatched login-expired router/client ACL bypass, relay `RWMutex` deadlock, route & SQL transaction defects | [Read Writeup](AUDITS.md#4-netbird-githubcomnetbirdionetbird--09f1de1--4-unpatched-go-mesh-acl-route-transaction--relay-deadlock-defects) |
+| **`SocketDev/*`** | TypeScript / Rust / C++ / Helm | `766b1e6` / `e1fb803` / `ffa6ef8` / `a75313c` / `a73684f` | **6** unpatched `SOCKET_API_TOKEN` child-process leak, MCP fail-open gate, PyPI sdist & npm archive verifier bypasses, Keychain wedge & Helm TLS defects | [Read Writeup](AUDITS.md#5-socket-githubcomsocketdev--6-unpatched-supply-chain-firewall-mcp-gate-patch-verifier--kubernetes-helm-defects) |
 
 
 

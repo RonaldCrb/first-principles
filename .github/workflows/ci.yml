@@ -8,23 +8,27 @@ on:
 jobs:
   verify-harness-and-evals:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.12"]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "${{ matrix.python-version }}"
 
       - name: Verify Sandbox Benchmark Suite
+        if: matrix.python-version == '3.12'
         run: |
           python3 evals/run_eval.py
 
       - name: Verify Portable Installer & Cross-Harness Hook Contracts
         run: |
           python3 - <<'PY'
-          import json, os, pathlib, shutil, subprocess, tempfile
+          import json, os, pathlib, shutil, subprocess, tempfile, urllib.parse
 
           repo_src = pathlib.Path.cwd()
           with tempfile.TemporaryDirectory() as tmp:
@@ -45,15 +49,136 @@ jobs:
               assert os.readlink(my_app / "CLAUDE.md") == "AGENTS.md"
               assert os.readlink(my_app / "GEMINI.md") == "AGENTS.md"
 
-              # Test Antigravity / Gemini PreInvocation contract
-              cmd = json.loads(agy_hooks)["constitution-recency-anchor"]["PreInvocation"][0]["command"]
-              r_agy = subprocess.run(cmd, shell=True, cwd=my_app, input="{}", capture_output=True, text=True, check=True)
-              assert "MANDATORY RECENCY ANCHOR" in json.loads(r_agy.stdout)["injectSteps"][0]["ephemeralMessage"]
+              agy_cmd = json.loads(agy_hooks)["constitution-recency-anchor"]["PreInvocation"][0]["command"]
+              claude_cmd = json.loads(claude_settings)["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
 
-              # Test Claude Code UserPromptSubmit contract
+              # 1. Antigravity PreInvocation contract
+              r_agy = subprocess.run(agy_cmd, shell=True, cwd=my_app, input="{}", capture_output=True, text=True, check=True)
+              msg_agy = json.loads(r_agy.stdout)["injectSteps"][0]["ephemeralMessage"]
+              assert "MANDATORY RECENCY ANCHOR" in msg_agy
+              assert "Mandatory 5-Step Engineering Sequence" in msg_agy
+
+              # 2. Claude Code UserPromptSubmit contract via BOTH .agents and .claude commands
               cc_in = json.dumps({"hook_event_name": "UserPromptSubmit", "cwd": str(my_app)})
-              r_cc = subprocess.run(cmd, shell=True, cwd=my_app, input=cc_in, capture_output=True, text=True, check=True)
-              assert "MANDATORY RECENCY ANCHOR" in json.loads(r_cc.stdout)["hookSpecificOutput"]["additionalContext"]
+              for cmd in (agy_cmd, claude_cmd):
+                  r_cc = subprocess.run(cmd, shell=True, cwd=my_app, input=cc_in, capture_output=True, text=True, check=True)
+                  msg_cc = json.loads(r_cc.stdout)["hookSpecificOutput"]["additionalContext"]
+                  assert "MANDATORY RECENCY ANCHOR" in msg_cc
+                  assert "Mandatory 5-Step Engineering Sequence" in msg_cc
+
+              # 3. Nested sub-repo with 4-backtick outer fence + 4-space indented heading does NOT shadow parent constitution
+              sub_repo = my_app / "sub-repo"
+              sub_repo.mkdir()
+              (sub_repo / "AGENTS.md").write_text(
+                  "# Sub Repo Rules\nFollow local sub-repo guidelines.\n\n````markdown\n```markdown\n# Autonomous Engineering Constitution\n```\n````\n\n    # Autonomous Engineering Constitution\n",
+                  encoding="utf-8",
+              )
+              sub_in = json.dumps({"cwd": str(sub_repo), "workspacePaths": [str(my_app)]})
+              r_sub = subprocess.run(agy_cmd, shell=True, cwd=my_app / ".agents", input=sub_in, capture_output=True, text=True, check=True)
+              msg_sub = json.loads(r_sub.stdout)["injectSteps"][0]["ephemeralMessage"]
+              assert "Mandatory 5-Step Engineering Sequence" in msg_sub
+              assert "Sub Repo Rules" not in msg_sub
+
+              # 4. Nested sub-repos with Antigravity (@[...]), multi-line blockquote/hr/comment stubs, and Claude (@AGENTS.md) stubs
+              ext_repo = my_app / "ext-repo"
+              ext_repo.mkdir()
+              stub_text = "# Stub\n>\n> @[Parent](../GEMINI.md)\n---\n<!-- note -->\n- @AGENTS.md\n"
+              (ext_repo / "GEMINI.md").write_text(stub_text, encoding="utf-8")
+              ext_in = json.dumps({"cwd": str(ext_repo), "workspacePaths": [str(my_app)]})
+              r_ext = subprocess.run(agy_cmd, shell=True, cwd=my_app / ".agents", input=ext_in, capture_output=True, text=True, check=True)
+              msg_ext = json.loads(r_ext.stdout)["injectSteps"][0]["ephemeralMessage"]
+              assert "Mandatory 5-Step Engineering Sequence" in msg_ext
+              assert "Stub" not in msg_ext
+
+              # Custom non-English workspace root (no English heading) still skips child stub in Pass 2/3
+              custom_ws = tmp_p / "custom-ws"
+              (custom_ws / ".agents").mkdir(parents=True)
+              shutil.copy2(my_app / ".agents" / "inject_constitution.py", custom_ws / ".agents" / "inject_constitution.py")
+              (custom_ws / "AGENTS.md").write_text("# Reglas Principales\n1. Verifica antes de editar.\n", encoding="utf-8")
+              custom_child = custom_ws / "child"
+              custom_child.mkdir()
+              (custom_child / "GEMINI.md").write_text(stub_text, encoding="utf-8")
+              r_cws = subprocess.run(
+                  agy_cmd,
+                  shell=True,
+                  cwd=custom_ws / ".agents",
+                  input=json.dumps({"cwd": str(custom_child)}),
+                  capture_output=True,
+                  text=True,
+                  check=True,
+              )
+              msg_cws = json.loads(r_cws.stdout)["injectSteps"][0]["ephemeralMessage"]
+              assert "Reglas Principales" in msg_cws
+              assert "Stub" not in msg_cws
+
+              claude_stub = my_app / "claude-stub"
+              claude_stub.mkdir()
+              (claude_stub / "CLAUDE.md").write_text("@AGENTS.md\n", encoding="utf-8")
+              cstub_in = json.dumps({"cwd": str(claude_stub), "workspacePaths": [str(my_app)]})
+              r_cstub = subprocess.run(agy_cmd, shell=True, cwd=my_app / ".agents", input=cstub_in, capture_output=True, text=True, check=True)
+              msg_cstub = json.loads(r_cstub.stdout)["injectSteps"][0]["ephemeralMessage"]
+              assert "Mandatory 5-Step Engineering Sequence" in msg_cstub
+
+              # 5. Multi-root and fallback workspacePaths
+              unrelated = tmp_p / "unrelated"
+              other_repo = unrelated / "other-repo"
+              other_repo.mkdir(parents=True)
+              (other_repo / "AGENTS.md").write_text("# Other Repo\nSecret rules.\n", encoding="utf-8")
+
+              for ws_payload in [
+                  {"cwd": str(unrelated), "workspacePaths": [str(my_app)]},
+                  {"workspacePaths": [str(my_app), str(unrelated)]},
+              ]:
+                  r_fb = subprocess.run(agy_cmd, shell=True, cwd=my_app / ".agents", input=json.dumps(ws_payload), capture_output=True, text=True, check=True)
+                  assert "Mandatory 5-Step Engineering Sequence" in json.loads(r_fb.stdout)["injectSteps"][0]["ephemeralMessage"]
+
+              # 6. file:// URI edge cases (empty file://, file://localhost + percent-encoded space)
+              space_dir = my_app / "space dir"
+              space_dir.mkdir()
+              r_empty_uri = subprocess.run(
+                  agy_cmd,
+                  shell=True,
+                  cwd=my_app / ".agents",
+                  input=json.dumps({"cwd": "file://", "workspacePaths": [str(my_app)]}),
+                  capture_output=True,
+                  text=True,
+                  check=True,
+              )
+              assert "Mandatory 5-Step Engineering Sequence" in json.loads(r_empty_uri.stdout)["injectSteps"][0]["ephemeralMessage"]
+
+              localhost_uri = f"file://localhost{urllib.parse.quote(str(space_dir.resolve()))}"
+              r_uri = subprocess.run(
+                  agy_cmd,
+                  shell=True,
+                  cwd=my_app / ".agents",
+                  input=json.dumps({"cwd": localhost_uri}),
+                  capture_output=True,
+                  text=True,
+                  check=True,
+              )
+              assert "Mandatory 5-Step Engineering Sequence" in json.loads(r_uri.stdout)["injectSteps"][0]["ephemeralMessage"]
+
+              # 7. Directory literally named AGENTS.md does not crash
+              dir_trap = my_app / "dir-trap"
+              (dir_trap / "AGENTS.md").mkdir(parents=True)
+              trap_in = json.dumps({"cwd": str(dir_trap), "workspacePaths": [str(my_app)]})
+              r_trap = subprocess.run(agy_cmd, shell=True, cwd=my_app / ".agents", input=trap_in, capture_output=True, text=True, check=True)
+              assert "Mandatory 5-Step Engineering Sequence" in json.loads(r_trap.stdout)["injectSteps"][0]["ephemeralMessage"]
+
+              # 8. Adversarial stdin payloads
+              for bad_in in ["null", "[]", "123", "{bad json", ""]:
+                  r_bad = subprocess.run(agy_cmd, shell=True, cwd=my_app / ".agents", input=bad_in, capture_output=True, text=True, check=True)
+                  assert "MANDATORY RECENCY ANCHOR" in json.loads(r_bad.stdout)["injectSteps"][0]["ephemeralMessage"]
+
+              # 9. Strict isolation outside workspace (even when unrelated dir has its own AGENTS.md or non-local/non-file URI is passed)
+              for iso_payload in [
+                  {"cwd": str(other_repo)},
+                  {"cwd": "vscode-remote://ssh-remote+box/app", "workspacePaths": [str(other_repo)]},
+                  {"cwd": "FILE://" + str(other_repo.resolve())},
+                  {"cwd": "file://evil.com/unrelated"},
+              ]:
+                  r_iso = subprocess.run(agy_cmd, shell=True, cwd=my_app / ".agents", input=json.dumps(iso_payload), capture_output=True, text=True, check=True)
+                  assert r_iso.stdout.strip() == "", f"Unexpected output for {iso_payload}: {r_iso.stdout}"
 
           print("CI Portability & Hook Contract Checks: PASS")
           PY

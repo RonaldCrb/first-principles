@@ -89,8 +89,8 @@
    - Humans need historical context and philosophical derivations (`FIRST_PRINCIPLES.md`).
    - Machines need a dense, zero-fluff operational sequence (`AGENTS.md`, symlinked to `CLAUDE.md` and `GEMINI.md` for universal cross-harness autoloading).
 2. **Universal Epistemic Fallibility & Strict Cognitive Sequence (`Steps 1–4`):**
-   - All unverified information—human claims, subagent reports, docs, tests, and the agent's own prior turns—must be treated as fallible hypotheses until verified against live code.
-   - Enforcing the strict order—**(1) Observe System Reality $\rightarrow$ (2) Mentally Simulate $\rightarrow$ (3) Delete First $\rightarrow$ (4) Falsification Gate**—forces cold-start agents to trace callers, state owners, and security boundaries before forming an opinion.
+   - Everything not verified live in the current session—regardless of source or the model's own training memory—must be treated as a fallible hypothesis ("Don't Trust, Verify").
+   - Enforcing the strict order—**(1) Observe System Reality $\rightarrow$ (2) Mentally Simulate $\rightarrow$ (3) Delete First $\rightarrow$ (4) Falsification Gate**—forces cold-start agents to verify live reality via files, commands, or web search before forming an opinion.
 3. **Multi-Turn Persistence via Ultra-Lean System Bytecode & Recency Anchoring:**
    - A dense, 15-line operational sequence in `AGENTS.md` anchored at the tail of the context window via `hooks/inject_constitution.py` preserves attention across 1,000+ step horizons without ceremonial markdown bloat.
 4. **Post-Gate Invariant Continuity & Maker-Breaker Verification (`Step 5`):**

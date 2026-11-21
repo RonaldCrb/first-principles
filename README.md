@@ -43,7 +43,7 @@ Every agent turn is bound to a strict cognitive state machine defined in [`AGENT
 [5. Top-Down Execution & Empirical Proof] ◄── [4. Falsification / Counter-Proposal Gate]
 ```
 
-1. **Universal Epistemic Fallibility & Order:** Every unverified claim—from humans, subagents, docs, tests, or prior turns—is treated as a fallible hypothesis in Step 1. Placing the *Falsification Gate* (Step 4) after *System Observation* (Step 1), *Mental Simulation* (Step 2), and *Delete First* (Step 3) prevents cold-start agents from guessing or hallucinating counter-proposals before reading callers.
+1. **Universal Epistemic Fallibility & Order:** Everything not verified live in the current session—zero exceptions, regardless of source or the model's own training memory—is treated as a fallible hypothesis in Step 1 ("Don't Trust, Verify"). Placing the *Falsification Gate* (Step 4) after *System Observation* (Step 1), *Mental Simulation* (Step 2), and *Delete First* (Step 3) prevents cold-start agents from guessing or hallucinating counter-proposals before inspecting live reality.
 2. **Hard Counter-Proposal Gate:** If the premise is flawed or lower-leverage, the agent is forbidden from writing code and must halt with a **Counter-Proposal** (`Fatal Flaw`, `Superior Path`, `Go/No-Go`).
 3. **Post-Gate Invariant Continuity & Maker-Breaker Verification:** Clearing Step 4 does not grant license for local patch myopia. During Step 5, changes propagate top-down from the state owner, obsolete methods and orphaned tests are deleted rather than shimmed, and a fresh-context **Breaker** subagent (or adversarial breaker script) attacks the modified code cold to trigger unhandled exceptions or silent state corruption.
 4. **Shannon Signal-to-Noise:** Responses are written in plain, everyday human English—banning technobabble, filler, and ceremonial markdown to preserve attention across long conversations.
@@ -83,7 +83,7 @@ Because [`AGENTS.md`](AGENTS.md) bans thinking out loud (*"Lead with the answer"
 
 ## Empirical Sandbox Evals & Zero-Key CI (`evals/`)
 
-[`evals/run_eval.py`](evals/run_eval.py) tests whether an agent actually inspects connected files, deletes dead code, and holds its ground under user pressure across 16 production scenarios—spanning backend correctness, cross-package mock-vs-producer divergence, multi-turn sycophancy resistance, adversarial Maker-Breaker attacks, and SRE/infrastructure state invariants (Kubernetes HPA ownership conflicts, PodDisruptionBudget drain deadlocks, `terminationGracePeriodSeconds` vs `SIGTERM` drain races, Terraform ALB/ECS timeout mismatches, PostgreSQL connection-pool exhaustion, and Redis `allkeys-lru` eviction on shared Celery brokers).
+[`evals/run_eval.py`](evals/run_eval.py) tests whether an agent actually inspects connected files, verifies live reality, deletes dead code, and holds its ground under user pressure across 19 scenarios—spanning backend correctness, cross-package mock-vs-producer divergence, non-coding consumer tech-support false premises, zero-file-mention CLI troubleshooting traps, stale `README.md` runbook traps, multi-turn sycophancy resistance, adversarial Maker-Breaker attacks, and SRE/infrastructure state invariants (Kubernetes HPA ownership conflicts, PodDisruptionBudget drain deadlocks, `terminationGracePeriodSeconds` vs `SIGTERM` drain races, Terraform ALB/ECS timeout mismatches, PostgreSQL connection-pool exhaustion, and Redis `allkeys-lru` eviction on shared Celery brokers).
 
 ### Two-Tier Verification Architecture (VCR Cassettes + Live Breaker Execution)
 

@@ -36,7 +36,7 @@ def build_cli_cmd(runner: str, effort: str, model: str, prompt: str, is_continua
             cmd.append("-c")
         if model:
             cmd.extend(["--model", model])
-        cmd.extend(["-p", prompt, "--effort", effort, "--dangerously-skip-permissions"])
+        cmd.extend(["--project", "outside-of-project", "-p", prompt, "--effort", effort, "--dangerously-skip-permissions"])
         return cmd
     if runner == "claude":
         cmd = ["claude"]
@@ -66,9 +66,7 @@ def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: 
             fpath.write_text(content, encoding="utf-8")
 
         if with_constitution:
-            const_text = CONSTITUTION_PATH.read_text(encoding="utf-8")
-            for rule_file in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"):
-                (tmp_path / rule_file).write_text(const_text, encoding="utf-8")
+            subprocess.run(["bash", str(DIR.parent / "install.sh"), str(tmp_path)], check=True, capture_output=True)
 
         git_env = {
             **os.environ,
@@ -85,6 +83,8 @@ def run_cli_in_sandbox(runner: str, effort: str, model: str, with_constitution: 
         )
 
         env = os.environ.copy()
+        env.pop("ANTIGRAVITY_SOURCE_METADATA", None)
+        env.pop("ANTIGRAVITY_AGENT", None)
         turns = case.get("turns") or [case["prompt"]]
         turn_outputs = []
         for idx, prompt in enumerate(turns):

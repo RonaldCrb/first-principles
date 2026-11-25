@@ -27,7 +27,7 @@ Following Dijkstra and Wirth's separation of concerns, this repository splits co
 | Artifact | Target Consumer | Purpose |
 | :--- | :--- | :--- |
 | **[`FIRST_PRINCIPLES.md`](FIRST_PRINCIPLES.md)** | **Humans** | The foundational treatise deriving 11 engineering laws from Tesla, Brooks, Gall, Hoare, Feynman, Dijkstra, Wirth, Pike, Lamport, Popper, Hamming, Musk, and Shannon. |
-| **[`AGENTS.md`](AGENTS.md)** | **Autonomous Agents** | A dense, 15-line operational sequence ("machine bytecode") autoloaded into `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` that enforces strict pre-execution falsification and invariant continuity on every turn. |
+| **[`AGENTS.md`](AGENTS.md)** | **Autonomous Agents** | A dense, 16-line operational sequence ("machine bytecode") autoloaded into `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` that enforces strict pre-execution falsification and invariant continuity on every turn. |
 | **[`evals/`](evals/run_eval.py)** | **Verification Harness** | Single-turn and multi-turn `/tmp` sandbox benchmark comparing unguided Baseline agents against Constitution-governed agents across multi-file engineering scenarios (`claude`, `codex`, `gemini`, `agy`). |
 | **[`AUDITS.md`](AUDITS.md)** | **Production Audit Ledger** | Line-linked technical writeups of real-world vulnerabilities and state-invariant defects discovered cold across production open-source repositories. |
 
@@ -45,7 +45,7 @@ Every agent turn is bound to a strict cognitive state machine defined in [`AGENT
 
 1. **Universal Epistemic Fallibility & Order:** Everything not verified live in the current session—zero exceptions, regardless of source or the model's own training memory—is treated as a fallible hypothesis in Step 1 ("Don't Trust, Verify"). Placing the *Falsification Gate* (Step 4) after *System Observation* (Step 1), *Mental Simulation* (Step 2), and *Delete First* (Step 3) prevents cold-start agents from guessing or hallucinating counter-proposals before inspecting live reality.
 2. **Hard Counter-Proposal Gate:** If the premise is flawed or lower-leverage, the agent is forbidden from writing code and must halt with a **Counter-Proposal** (`Fatal Flaw`, `Superior Path`, `Go/No-Go`).
-3. **Post-Gate Invariant Continuity & Maker-Breaker Verification:** Clearing Step 4 does not grant license for local patch myopia. During Step 5, changes propagate top-down from the state owner, obsolete methods and orphaned tests are deleted rather than shimmed, and a fresh-context **Breaker** subagent (or adversarial breaker script) attacks the modified code cold to trigger unhandled exceptions or silent state corruption.
+3. **Frozen-Invariant Maker-Breaker Loop:** Clearing Step 4 does not grant license for local patch myopia. During Step 5, changes propagate top-down from the state owner, obsolete methods and orphaned tests are deleted rather than shimmed, Step 2 state invariants are frozen as executable checks before coding (never weakened, skipped, or mocked away to force a green run), and a fresh-context **Breaker** subagent (or adversarial breaker script) hammers the code cold with boundary inputs, silent-corruption probes, and randomized/concurrent sequences—looping Maker → Breaker until every frozen check holds.
 4. **Shannon Signal-to-Noise:** Responses are written in plain, everyday human English—banning technobabble, filler, and ceremonial markdown to preserve attention across long conversations.
 
 ---
@@ -68,8 +68,8 @@ python3 ./first-principles/evals/run_eval.py
 ```
 
 `install.sh` requires **zero machine-specific paths** (safe to commit or share across macOS, Linux, and containers):
-1. Installs [`AGENTS.md`](AGENTS.md) and relative symlinks (`CLAUDE.md`, `GEMINI.md`) in the target workspace root so Claude Code, Cursor, Gemini / Antigravity, and Codex autoload the same 15-line operational bytecode.
-2. Installs [`hooks/inject_constitution.py`](hooks/inject_constitution.py) into `.agents/inject_constitution.py` and merges relative hook entries into both `.agents/hooks.json` (`PreInvocation` for Gemini / Antigravity) and `.claude/settings.json` (`UserPromptSubmit` for Claude Code), preserving any existing hooks so the 15-line constitution stays anchored at the tail of the context window across 1,000+ step sessions and multiple compactions.
+1. Installs [`AGENTS.md`](AGENTS.md) and relative symlinks (`CLAUDE.md`, `GEMINI.md`) in the target workspace root so Claude Code, Cursor, Gemini / Antigravity, and Codex autoload the same 16-line operational bytecode.
+2. Installs [`hooks/inject_constitution.py`](hooks/inject_constitution.py) into `.agents/inject_constitution.py` and merges relative hook entries into both `.agents/hooks.json` (`PreInvocation` for Gemini / Antigravity) and `.claude/settings.json` (`UserPromptSubmit` for Claude Code), preserving any existing hooks so the 16-line constitution stays anchored at the tail of the context window across 1,000+ step sessions and multiple compactions.
 
 ### Model Thinking Budget (`Medium` Effort Required)
 
@@ -83,7 +83,7 @@ Because [`AGENTS.md`](AGENTS.md) bans thinking out loud (*"Lead with the answer"
 
 ## Empirical Sandbox Evals & Zero-Key CI (`evals/`)
 
-[`evals/run_eval.py`](evals/run_eval.py) tests whether an agent actually inspects connected files, verifies live reality, deletes dead code, and holds its ground under user pressure across 19 scenarios—spanning backend correctness, cross-package mock-vs-producer divergence, non-coding consumer tech-support false premises, zero-file-mention CLI troubleshooting traps, stale `README.md` runbook traps, multi-turn sycophancy resistance, adversarial Maker-Breaker attacks, and SRE/infrastructure state invariants (Kubernetes HPA ownership conflicts, PodDisruptionBudget drain deadlocks, `terminationGracePeriodSeconds` vs `SIGTERM` drain races, Terraform ALB/ECS timeout mismatches, PostgreSQL connection-pool exhaustion, and Redis `allkeys-lru` eviction on shared Celery brokers).
+[`evals/run_eval.py`](evals/run_eval.py) tests whether an agent actually inspects connected files, verifies live reality, deletes dead code, and holds its ground under user pressure across 21 scenarios—spanning backend correctness, cross-package mock-vs-producer divergence, non-coding consumer tech-support false premises, zero-file-mention CLI troubleshooting traps, stale `README.md` runbook traps, multi-turn sycophancy resistance, invariant-test weakening traps, adversarial Maker-Breaker attacks, randomized/concurrent state-machine breaker stress tests, and SRE/infrastructure state invariants (Kubernetes HPA ownership conflicts, PodDisruptionBudget drain deadlocks, `terminationGracePeriodSeconds` vs `SIGTERM` drain races, Terraform ALB/ECS timeout mismatches, PostgreSQL connection-pool exhaustion, and Redis `allkeys-lru` eviction on shared Celery brokers).
 
 ### Two-Tier Verification Architecture (VCR Cassettes + Live Breaker Execution)
 
@@ -92,7 +92,7 @@ The benchmark separates **live LLM execution** from **deterministic CI grading**
 1. **Local Live Execution & Recording (`--live --record`):**
    Running `python3 evals/run_eval.py --live --record` on a developer machine spins up isolated git repositories with realistic commit history, executes the live CLI agent (`claude`, `codex`, `gemini`, or `agy`) in both **Baseline** (no constitution) and **Constitution** (`AGENTS.md`) modes, and records the resulting disk mutations (`files`) and final responses (`output`) into [`evals/fixtures.json`](evals/fixtures.json).
 2. **Deterministic CI Replay & Live Adversarial Breaker Execution ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):**
-   On every push and pull request, GitHub Actions runs `python3 evals/run_eval.py` without `--live`. The harness replays the recorded agent mutations from [`evals/fixtures.json`](evals/fixtures.json), verifies every file and response invariant defined in [`evals/cases.json`](evals/cases.json), and **executes the adversarial `breaker_assertions` Python scripts live** in temporary sandboxes (attacking the agent's SQLite schemas and parsers with cross-tenant collisions, `NaN`, `-inf`, and negative inputs) alongside end-to-end portability tests for `install.sh` and `hooks/inject_constitution.py`.
+   On every push and pull request, GitHub Actions runs `python3 evals/run_eval.py` without `--live`. The harness replays the recorded agent mutations from [`evals/fixtures.json`](evals/fixtures.json), verifies every file and response invariant defined in [`evals/cases.json`](evals/cases.json), and **executes the adversarial `breaker_assertions` Python scripts live** in temporary sandboxes (attacking the agent's SQLite schemas, state machines, and parsers with cross-tenant collisions, concurrent race barriers, randomized out-of-order sequences, `NaN`, `-inf`, and negative inputs) alongside end-to-end portability tests for `install.sh` and `hooks/inject_constitution.py`.
 
 ```bash
 # 1. Instant CI replay + live adversarial breaker execution (zero API keys / ~2s)
